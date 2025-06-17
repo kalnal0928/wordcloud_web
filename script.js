@@ -200,8 +200,7 @@ class WordCloudGenerator {
         this.urlStatus.textContent = message;
         this.urlStatus.className = `url-status ${type}`;
     }
-    
-    // 텍스트 전처리 및 단어 빈도 계산
+      // 텍스트 전처리 및 단어 빈도 계산
     processText(text) {
         // 한글, 영문, 숫자만 추출하고 공백으로 분리
         const words = text.match(/[가-힣a-zA-Z0-9]+/g) || [];
@@ -220,6 +219,15 @@ class WordCloudGenerator {
             .sort(([,a], [,b]) => b - a)
             .slice(0, 50);
         
+        // 빈도 분포 정보 로깅
+        if (sortedWords.length > 0) {
+            console.log('=== 단어 빈도 분석 결과 ===');
+            console.log(`총 고유 단어 수: ${Object.keys(wordCount).length}`);
+            console.log(`최고 빈도: ${sortedWords[0][1]}회 (${sortedWords[0][0]})`);
+            console.log(`최저 빈도: ${sortedWords[sortedWords.length-1][1]}회 (${sortedWords[sortedWords.length-1][0]})`);
+            console.log('상위 10개 단어:', sortedWords.slice(0, 10));
+        }
+        
         return sortedWords;
     }
     
@@ -228,14 +236,13 @@ class WordCloudGenerator {
         const scheme = this.colorScheme.value;
         return this.colorSchemes[scheme] || this.colorSchemes.default;
     }
-    
-    // 폰트 크기 설정 가져오기
+      // 폰트 크기 설정 가져오기
     getFontSizeSettings() {
         const size = this.fontSize.value;
         const settings = {
-            small: { min: 12, max: 40 },
-            medium: { min: 16, max: 60 },
-            large: { min: 20, max: 80 }
+            small: { min: 14, max: 45 },
+            medium: { min: 18, max: 70 },
+            large: { min: 22, max: 100 }
         };
         return settings[size] || settings.medium;
     }
@@ -270,28 +277,55 @@ class WordCloudGenerator {
             const colors = this.getColors();
             const fontSizeSettings = this.getFontSizeSettings();
             const fontFamily = this.fontFamily.value;
-            
-            // wordcloud2.js를 사용하여 워드 클라우드 생성
+              // wordcloud2.js를 사용하여 워드 클라우드 생성
             const wordList = words.map(([word, count], index) => {
-                const maxCount = words[0][1];
-                const normalizedSize = (count / maxCount) * fontSizeSettings.max + fontSizeSettings.min;
-                return [word, normalizedSize];
+                const maxCount = words[0][1]; // 최고 빈도
+                const minCount = words[words.length - 1][1]; // 최저 빈도
+                
+                // 로그 스케일을 사용하여 더 극적인 크기 차이 만들기
+                const logMax = Math.log(maxCount + 1);
+                const logCount = Math.log(count + 1);
+                const logMin = Math.log(minCount + 1);
+                
+                // 정규화된 비율 계산 (0~1 사이)
+                const normalizedRatio = (logCount - logMin) / (logMax - logMin);
+                
+                // 크기 계산 (최소 크기에서 최대 크기까지)
+                const sizeRange = fontSizeSettings.max - fontSizeSettings.min;
+                const calculatedSize = fontSizeSettings.min + (normalizedRatio * sizeRange);
+                
+                // 최소 크기 보장
+                const finalSize = Math.max(calculatedSize, fontSizeSettings.min);
+                
+                console.log(`단어: ${word}, 빈도: ${count}, 크기: ${Math.round(finalSize)}`);
+                
+                return [word, finalSize];
             });
-            
-            const options = {
+              const options = {
                 list: wordList,
                 gridSize: Math.round(16 * this.canvas.width / 1024),
                 weightFactor: 1,
                 fontFamily: fontFamily,
-                color: () => {
-                    return colors[Math.floor(Math.random() * colors.length)];
+                color: (word, weight, fontSize, distance, theta) => {
+                    // 단어의 크기(빈도)에 따라 색상 강도 조절
+                    const maxSize = Math.max(...wordList.map(([, size]) => size));
+                    const minSize = Math.min(...wordList.map(([, size]) => size));
+                    const normalizedIntensity = (fontSize - minSize) / (maxSize - minSize);
+                    
+                    const baseColors = colors;
+                    const selectedColor = baseColors[Math.floor(Math.random() * baseColors.length)];
+                    
+                    // 빈도가 높을수록 더 진한 색상, 낮을수록 더 연한 색상
+                    return this.adjustColorIntensity(selectedColor, normalizedIntensity);
                 },
                 backgroundColor: '#ffffff',
                 rotateRatio: 0.3,
                 rotationSteps: 2,
                 shuffle: true,
                 drawOutOfBound: false,
-                shrinkToFit: true
+                shrinkToFit: true,
+                minFontSize: fontSizeSettings.min,
+                maxFontSize: fontSizeSettings.max
             };
             
             // 캔버스 크기 설정
@@ -315,6 +349,34 @@ class WordCloudGenerator {
         }
     }
     
+    // 색상 강도 조절 (빈도에 따라)
+    adjustColorIntensity(hexColor, intensity) {
+        // intensity: 0 (연함) ~ 1 (진함)
+        
+        // hex를 RGB로 변환
+        const hex = hexColor.replace('#', '');
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        
+        // 강도에 따라 색상 조절
+        // 강도가 높으면 더 진하게, 낮으면 더 연하게
+        const minIntensity = 0.4; // 최소 강도 (너무 연하지 않게)
+        const adjustedIntensity = minIntensity + (intensity * (1 - minIntensity));
+        
+        const adjustedR = Math.round(255 - (255 - r) * adjustedIntensity);
+        const adjustedG = Math.round(255 - (255 - g) * adjustedIntensity);
+        const adjustedB = Math.round(255 - (255 - b) * adjustedIntensity);
+        
+        // RGB를 hex로 변환
+        const toHex = (n) => {
+            const hex = n.toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        };
+        
+        return `#${toHex(adjustedR)}${toHex(adjustedG)}${toHex(adjustedB)}`;
+    }
+
     // 이미지 다운로드
     downloadImage() {
         try {
