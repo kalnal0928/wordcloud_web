@@ -12,17 +12,45 @@
         <header>
             <h1>✨ 워드 클라우드 생성기</h1>
             <p>텍스트를 입력하고 아름다운 워드 클라우드를 만들어보세요!</p>
-        </header>
-
-        <main>
+        </header>        <main>
             <div class="input-section">
-                <div class="input-group">
-                    <label for="textInput">텍스트 입력:</label>
-                    <textarea 
-                        id="textInput" 
-                        placeholder="여기에 텍스트를 입력하세요. 단어들이 많을수록 더 풍부한 워드 클라우드가 생성됩니다."
-                        rows="8"
-                    ></textarea>
+                <div class="input-tabs">
+                    <button class="tab-btn active" data-tab="text">직접 입력</button>
+                    <button class="tab-btn" data-tab="url">웹페이지 URL</button>
+                </div>
+
+                <div class="tab-content active" id="text-tab">
+                    <div class="input-group">
+                        <label for="textInput">텍스트 입력:</label>
+                        <textarea 
+                            id="textInput" 
+                            placeholder="여기에 텍스트를 입력하세요. 단어들이 많을수록 더 풍부한 워드 클라우드가 생성됩니다."
+                            rows="8"
+                        ></textarea>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="url-tab">
+                    <div class="input-group">
+                        <label for="urlInput">웹페이지 URL:</label>
+                        <input 
+                            type="url" 
+                            id="urlInput" 
+                            placeholder="https://example.com"
+                            class="url-input"
+                        />
+                        <button id="fetchBtn" class="fetch-btn">텍스트 가져오기</button>
+                    </div>
+                    <div class="url-status" id="urlStatus"></div>
+                    <div class="input-group">
+                        <label for="extractedText">추출된 텍스트:</label>
+                        <textarea 
+                            id="extractedText" 
+                            placeholder="웹페이지에서 추출된 텍스트가 여기에 표시됩니다."
+                            rows="6"
+                            readonly
+                        ></textarea>
+                    </div>
                 </div>
 
                 <div class="controls">

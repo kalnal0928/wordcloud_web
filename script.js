@@ -5,12 +5,17 @@ class WordCloudGenerator {
         this.canvas = document.getElementById('wordcloud');
         this.ctx = this.canvas.getContext('2d');
         this.textInput = document.getElementById('textInput');
+        this.urlInput = document.getElementById('urlInput');
+        this.extractedText = document.getElementById('extractedText');
         this.generateBtn = document.getElementById('generateBtn');
         this.downloadBtn = document.getElementById('downloadBtn');
+        this.fetchBtn = document.getElementById('fetchBtn');
         this.placeholder = document.getElementById('placeholder');
         this.colorScheme = document.getElementById('colorScheme');
         this.fontSize = document.getElementById('fontSize');
         this.fontFamily = document.getElementById('fontFamily');
+        this.urlStatus = document.getElementById('urlStatus');
+        this.currentTab = 'text';
         
         this.colorSchemes = {
             default: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F'],
@@ -23,16 +28,177 @@ class WordCloudGenerator {
         
         this.init();
     }
-    
-    init() {
+      init() {
         this.generateBtn.addEventListener('click', () => this.generateWordCloud());
         this.downloadBtn.addEventListener('click', () => this.downloadImage());
+        this.fetchBtn.addEventListener('click', () => this.fetchWebPageText());
+        
+        // 탭 전환 이벤트
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
+        });
+        
+        // URL 입력 엔터 키 이벤트
+        this.urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.fetchWebPageText();
+            }
+        });
         
         // 샘플 텍스트 설정
         this.textInput.value = `인공지능 머신러닝 데이터사이언스 프로그래밍 웹개발 모바일앱 클라우드컴퓨팅 사이버보안 
 블록체인 빅데이터 자동화 API 데이터베이스 프론트엔드 백엔드 풀스택 개발자 소프트웨어 
 알고리즘 자료구조 네트워크 서버 클라이언트 사용자경험 인터페이스 디자인 창의성 혁신 
 기술 미래 디지털트랜스포메이션 스마트시티 IoT 가상현실 증강현실 로봇공학 자율주행`;
+    }
+    
+    // 탭 전환
+    switchTab(tabName) {
+        this.currentTab = tabName;
+        
+        // 탭 버튼 활성화 상태 변경
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tabName);
+        });
+        
+        // 탭 콘텐츠 표시/숨김
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.toggle('active', content.id === `${tabName}-tab`);
+        });
+        
+        // URL 상태 초기화
+        if (tabName === 'url') {
+            this.urlStatus.textContent = '';
+            this.urlStatus.className = 'url-status';
+        }
+    }
+    
+    // 웹페이지 텍스트 가져오기
+    async fetchWebPageText() {
+        const url = this.urlInput.value.trim();
+        
+        if (!url) {
+            this.showUrlStatus('URL을 입력해주세요.', 'error');
+            return;
+        }
+        
+        if (!this.isValidUrl(url)) {
+            this.showUrlStatus('올바른 URL 형식이 아닙니다.', 'error');
+            return;
+        }
+        
+        this.fetchBtn.disabled = true;
+        this.fetchBtn.textContent = '가져오는 중...';
+        this.showUrlStatus('웹페이지 텍스트를 가져오고 있습니다...', 'loading');
+          try {
+            // 로컬 프록시 서버 시도 (개발 환경)
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                try {
+                    const proxyResponse = await fetch(`http://localhost:3001/api/extract-text?url=${encodeURIComponent(url)}`);
+                    if (proxyResponse.ok) {
+                        const proxyData = await proxyResponse.json();
+                        if (proxyData.success) {
+                            this.extractedText.value = proxyData.text;
+                            this.showUrlStatus(`성공적으로 ${proxyData.text.length}자의 텍스트를 추출했습니다.`, 'success');
+                            return;
+                        }
+                    }
+                } catch (proxyError) {
+                    console.log('로컬 프록시 서버 사용 불가:', proxyError);
+                }
+            }
+            
+            // CORS 우회를 위해 여러 공개 프록시 서비스 시도
+            const proxyUrls = [
+                `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+                `https://cors-anywhere.herokuapp.com/${url}`,
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+            ];
+            
+            let response = null;
+            let responseData = null;
+            
+            for (const proxyUrl of proxyUrls) {
+                try {
+                    response = await fetch(proxyUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json, text/plain, */*',
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        responseData = await response.json();
+                        break;
+                    }
+                } catch (error) {
+                    console.log(`프록시 ${proxyUrl} 실패:`, error);
+                    continue;
+                }
+            }
+            
+            if (!responseData || !responseData.contents) {
+                throw new Error('웹페이지 내용을 가져올 수 없습니다.');
+            }
+            
+            const htmlContent = responseData.contents;
+            const extractedText = this.extractTextFromHtml(htmlContent);
+            
+            if (!extractedText || extractedText.length < 10) {
+                throw new Error('웹페이지에서 충분한 텍스트를 추출할 수 없습니다.');
+            }
+            
+            this.extractedText.value = extractedText;
+            this.showUrlStatus(`성공적으로 ${extractedText.length}자의 텍스트를 추출했습니다.`, 'success');
+            
+        } catch (error) {
+            console.error('웹페이지 텍스트 추출 오류:', error);
+            this.showUrlStatus(`오류: ${error.message}`, 'error');
+            
+            // 대안 방법 제안
+            this.extractedText.value = '웹페이지 텍스트 추출에 실패했습니다.\n\n대안:\n1. 웹페이지의 텍스트를 직접 복사하여 "직접 입력" 탭에 붙여넣으세요.\n2. CORS 정책으로 인해 일부 웹사이트는 접근이 제한될 수 있습니다.\n3. 로컬에서 실행하는 경우 브라우저의 CORS 정책을 비활성화하거나 로컬 프록시 서버를 사용해보세요.';
+        } finally {
+            this.fetchBtn.disabled = false;
+            this.fetchBtn.textContent = '텍스트 가져오기';
+        }
+    }
+    
+    // URL 유효성 검사
+    isValidUrl(string) {
+        try {
+            new URL(string);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+    
+    // HTML에서 텍스트 추출
+    extractTextFromHtml(html) {
+        // 임시 DOM 요소 생성
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        
+        // 스크립트, 스타일, 주석 등 불필요한 요소 제거
+        const unwantedElements = tempDiv.querySelectorAll('script, style, nav, footer, aside, .ads, .advertisement, .sidebar, .menu');
+        unwantedElements.forEach(el => el.remove());
+        
+        // 텍스트 추출 및 정리
+        let text = tempDiv.textContent || tempDiv.innerText || '';
+        
+        // 공백 및 특수문자 정리
+        text = text.replace(/\s+/g, ' ') // 연속된 공백을 하나로
+                  .replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣]/g, ' ') // 한글, 영문, 숫자, 공백만 유지
+                  .trim();
+        
+        return text;
+    }
+    
+    // URL 상태 메시지 표시
+    showUrlStatus(message, type) {
+        this.urlStatus.textContent = message;
+        this.urlStatus.className = `url-status ${type}`;
     }
     
     // 텍스트 전처리 및 단어 빈도 계산
@@ -73,13 +239,23 @@ class WordCloudGenerator {
         };
         return settings[size] || settings.medium;
     }
-    
-    // 워드 클라우드 생성
+      // 워드 클라우드 생성
     async generateWordCloud() {
-        const text = this.textInput.value.trim();
+        let text = '';
+        
+        // 현재 활성 탭에 따라 텍스트 가져오기
+        if (this.currentTab === 'text') {
+            text = this.textInput.value.trim();
+        } else if (this.currentTab === 'url') {
+            text = this.extractedText.value.trim();
+            if (!text || text.includes('웹페이지 텍스트 추출에 실패했습니다')) {
+                alert('먼저 웹페이지에서 텍스트를 가져와주세요!');
+                return;
+            }
+        }
         
         if (!text) {
-            alert('텍스트를 입력해주세요!');
+            alert('텍스트를 입력하거나 웹페이지에서 텍스트를 가져와주세요!');
             return;
         }
         
