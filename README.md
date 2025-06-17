@@ -79,7 +79,7 @@ wordcloud_web/
 - **JavaScript (ES6+)**: 동적 기능 및 웹 스크래핑
 - **한국어 형태소 분석**: 규칙 기반 형태소 분석 알고리즘
 - **WordCloud2.js**: 워드 클라우드 생성 라이브러리
-- **Korean.js**: 한국어 처리 보조 라이브러리
+- **Hangul.js**: 한글 처리 최적화 라이브러리 (v0.2.6)
 - **Node.js + Express**: 로컬 프록시 서버 (CORS 우회)
 - **JSDOM**: 서버 사이드 HTML 파싱
 
