@@ -365,9 +365,9 @@ class WordCloudGenerator {
     getFontSizeSettings() {
         const size = this.fontSize.value;
         const settings = {
-            small: { min: 14, max: 45 },
-            medium: { min: 18, max: 70 },
-            large: { min: 22, max: 100 }
+            small: { min: 12, max: 35 },
+            medium: { min: 16, max: 50 },
+            large: { min: 20, max: 70 }
         };
         return settings[size] || settings.medium;
     }
@@ -398,11 +398,31 @@ class WordCloudGenerator {
         this.canvas.style.display = 'block';
         
         try {
+            // WordCloud 함수가 로드되었는지 확인
+            if (typeof WordCloud === 'undefined') {
+                throw new Error('워드 클라우드 라이브러리가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
+            }
+            
             const words = this.processText(text);
+            
+            if (words.length === 0) {
+                throw new Error('분석할 수 있는 단어가 없습니다. 더 많은 텍스트를 입력해주세요.');
+            }
+            
             const colors = this.getColors();
             const fontSizeSettings = this.getFontSizeSettings();
             const fontFamily = this.fontFamily.value;
-              // wordcloud2.js를 사용하여 워드 클라우드 생성
+            
+            // 캔버스 크기 설정 (정수값으로 확실히 설정)
+            const canvasWidth = 800;
+            const canvasHeight = 400;
+            
+            this.canvas.width = canvasWidth;
+            this.canvas.height = canvasHeight;
+            this.canvas.style.width = canvasWidth + 'px';
+            this.canvas.style.height = canvasHeight + 'px';
+            
+            // wordcloud2.js를 사용하여 워드 클라우드 생성
             const wordList = words.map(([word, count], index) => {
                 const maxCount = words[0][1]; // 최고 빈도
                 const minCount = words[words.length - 1][1]; // 최저 빈도
@@ -426,9 +446,10 @@ class WordCloudGenerator {
                 
                 return [word, finalSize];
             });
-              const options = {
+            
+            const options = {
                 list: wordList,
-                gridSize: Math.round(16 * this.canvas.width / 1024),
+                gridSize: Math.round(16 * canvasWidth / 1024),
                 weightFactor: 1,
                 fontFamily: fontFamily,
                 color: (word, weight, fontSize, distance, theta) => {
@@ -450,21 +471,51 @@ class WordCloudGenerator {
                 drawOutOfBound: false,
                 shrinkToFit: true,
                 minFontSize: fontSizeSettings.min,
-                maxFontSize: fontSizeSettings.max
+                maxFontSize: fontSizeSettings.max,
+                // 추가 안전 옵션들
+                wait: 0,
+                abortThreshold: 1000,
+                abort: function() {
+                    console.log('워드 클라우드 생성 중단됨');
+                }
             };
             
-            // 캔버스 크기 설정
-            this.canvas.width = 800;
-            this.canvas.height = 400;
+            // 워드 클라우드 생성 전 캔버스 초기화
+            this.ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.fillRect(0, 0, canvasWidth, canvasHeight);
             
-            WordCloud(this.canvas, options);
+            // 단어 리스트 검증
+            if (!Array.isArray(wordList) || wordList.length === 0) {
+                throw new Error('유효한 단어 리스트를 생성할 수 없습니다.');
+            }
+            
+            // 각 단어의 크기가 유효한지 확인
+            const validWordList = wordList.filter(([word, size]) => {
+                return word && typeof word === 'string' && 
+                       size && typeof size === 'number' && 
+                       size >= fontSizeSettings.min && 
+                       size <= fontSizeSettings.max;
+            });
+            
+            if (validWordList.length === 0) {
+                throw new Error('유효한 단어가 없습니다.');
+            }
+            
+            console.log(`워드 클라우드 생성 시작: ${validWordList.length}개 단어`);
+            
+            // 워드 클라우드 생성
+            WordCloud(this.canvas, {
+                ...options,
+                list: validWordList
+            });
             
             // 다운로드 버튼 표시
             this.downloadBtn.style.display = 'block';
             
         } catch (error) {
             console.error('워드 클라우드 생성 오류:', error);
-            alert('워드 클라우드 생성 중 오류가 발생했습니다.');
+            alert('워드 클라우드 생성 중 오류가 발생했습니다: ' + error.message);
             this.placeholder.style.display = 'flex';
             this.canvas.style.display = 'none';
         } finally {
