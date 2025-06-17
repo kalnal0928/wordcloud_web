@@ -398,11 +398,6 @@ class WordCloudGenerator {
         this.canvas.style.display = 'block';
         
         try {
-            // WordCloud 함수가 로드되었는지 확인
-            if (typeof WordCloud === 'undefined') {
-                throw new Error('워드 클라우드 라이브러리가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
-            }
-            
             const words = this.processText(text);
             
             if (words.length === 0) {
@@ -413,102 +408,55 @@ class WordCloudGenerator {
             const fontSizeSettings = this.getFontSizeSettings();
             const fontFamily = this.fontFamily.value;
             
-            // 캔버스 크기 설정 (정수값으로 확실히 설정)
+            // 캔버스 크기 설정
             const canvasWidth = 800;
             const canvasHeight = 400;
             
-            this.canvas.width = canvasWidth;
-            this.canvas.height = canvasHeight;
+            // 캔버스 크기를 명시적으로 설정
+            this.canvas.setAttribute('width', canvasWidth);
+            this.canvas.setAttribute('height', canvasHeight);
             this.canvas.style.width = canvasWidth + 'px';
             this.canvas.style.height = canvasHeight + 'px';
             
-            // wordcloud2.js를 사용하여 워드 클라우드 생성
-            const wordList = words.map(([word, count], index) => {
-                const maxCount = words[0][1]; // 최고 빈도
-                const minCount = words[words.length - 1][1]; // 최저 빈도
-                
-                // 로그 스케일을 사용하여 더 극적인 크기 차이 만들기
-                const logMax = Math.log(maxCount + 1);
-                const logCount = Math.log(count + 1);
-                const logMin = Math.log(minCount + 1);
-                
-                // 정규화된 비율 계산 (0~1 사이)
-                const normalizedRatio = (logCount - logMin) / (logMax - logMin);
-                
-                // 크기 계산 (최소 크기에서 최대 크기까지)
-                const sizeRange = fontSizeSettings.max - fontSizeSettings.min;
-                const calculatedSize = fontSizeSettings.min + (normalizedRatio * sizeRange);
-                
-                // 최소 크기 보장
-                const finalSize = Math.max(calculatedSize, fontSizeSettings.min);
-                
-                console.log(`단어: ${word}, 빈도: ${count}, 크기: ${Math.round(finalSize)}`);
-                
-                return [word, finalSize];
-            });
+            // 컨텍스트 재설정
+            this.ctx = this.canvas.getContext('2d');
             
-            const options = {
-                list: wordList,
-                gridSize: Math.round(16 * canvasWidth / 1024),
-                weightFactor: 1,
-                fontFamily: fontFamily,
-                color: (word, weight, fontSize, distance, theta) => {
-                    // 단어의 크기(빈도)에 따라 색상 강도 조절
-                    const maxSize = Math.max(...wordList.map(([, size]) => size));
-                    const minSize = Math.min(...wordList.map(([, size]) => size));
-                    const normalizedIntensity = (fontSize - minSize) / (maxSize - minSize);
-                    
-                    const baseColors = colors;
-                    const selectedColor = baseColors[Math.floor(Math.random() * baseColors.length)];
-                    
-                    // 빈도가 높을수록 더 진한 색상, 낮을수록 더 연한 색상
-                    return this.adjustColorIntensity(selectedColor, normalizedIntensity);
-                },
-                backgroundColor: '#ffffff',
-                rotateRatio: 0.3,
-                rotationSteps: 2,
-                shuffle: true,
-                drawOutOfBound: false,
-                shrinkToFit: true,
-                minFontSize: fontSizeSettings.min,
-                maxFontSize: fontSizeSettings.max,
-                // 추가 안전 옵션들
-                wait: 0,
-                abortThreshold: 1000,
-                abort: function() {
-                    console.log('워드 클라우드 생성 중단됨');
-                }
-            };
-            
-            // 워드 클라우드 생성 전 캔버스 초기화
-            this.ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            // 캔버스 초기화
             this.ctx.fillStyle = '#ffffff';
             this.ctx.fillRect(0, 0, canvasWidth, canvasHeight);
             
-            // 단어 리스트 검증
-            if (!Array.isArray(wordList) || wordList.length === 0) {
-                throw new Error('유효한 단어 리스트를 생성할 수 없습니다.');
+            // 여러 방법으로 워드 클라우드 생성 시도
+            let success = false;
+            
+            // 1. D3.js 기반 워드 클라우드 생성 시도
+            if (typeof d3 !== 'undefined' && d3.layout && d3.layout.cloud) {
+                try {
+                    await this.generateD3WordCloud(words, colors, fontSizeSettings, fontFamily, canvasWidth, canvasHeight);
+                    success = true;
+                } catch (error) {
+                    console.log('D3.js 워드 클라우드 실패:', error);
+                }
             }
             
-            // 각 단어의 크기가 유효한지 확인
-            const validWordList = wordList.filter(([word, size]) => {
-                return word && typeof word === 'string' && 
-                       size && typeof size === 'number' && 
-                       size >= fontSizeSettings.min && 
-                       size <= fontSizeSettings.max;
-            });
-            
-            if (validWordList.length === 0) {
-                throw new Error('유효한 단어가 없습니다.');
+            // 2. wordcloud2.js 폴백
+            if (!success && typeof WordCloud !== 'undefined') {
+                try {
+                    await this.generateWordCloud2(words, colors, fontSizeSettings, fontFamily, canvasWidth, canvasHeight);
+                    success = true;
+                } catch (error) {
+                    console.log('wordcloud2.js 실패:', error);
+                }
             }
             
-            console.log(`워드 클라우드 생성 시작: ${validWordList.length}개 단어`);
+            // 3. 순수 JavaScript 폴백
+            if (!success) {
+                await this.generateSimpleWordCloud(words, colors, fontSizeSettings, fontFamily, canvasWidth, canvasHeight);
+                success = true;
+            }
             
-            // 워드 클라우드 생성
-            WordCloud(this.canvas, {
-                ...options,
-                list: validWordList
-            });
+            if (!success) {
+                throw new Error('워드 클라우드 생성에 실패했습니다.');
+            }
             
             // 다운로드 버튼 표시
             this.downloadBtn.style.display = 'block';
@@ -523,6 +471,134 @@ class WordCloudGenerator {
             this.generateBtn.textContent = '워드 클라우드 생성';
             this.generateBtn.disabled = false;
         }
+    }
+    
+    // D3.js 기반 워드 클라우드 생성
+    async generateD3WordCloud(words, colors, fontSizeSettings, fontFamily, width, height) {
+        return new Promise((resolve, reject) => {
+            try {
+                // 단어 데이터 준비
+                const wordData = words.slice(0, 50).map(([word, count]) => ({
+                    text: word,
+                    size: fontSizeSettings.min + (count / words[0][1]) * (fontSizeSettings.max - fontSizeSettings.min)
+                }));
+                
+                // D3 워드 클라우드 레이아웃 설정
+                const layout = d3.layout.cloud()
+                    .size([width, height])
+                    .words(wordData)
+                    .padding(5)
+                    .rotate(() => ~~(Math.random() * 2) * 90)
+                    .font(fontFamily)
+                    .fontSize(d => d.size)
+                    .on("end", (words) => {
+                        // 캔버스에 그리기
+                        this.ctx.clearRect(0, 0, width, height);
+                        this.ctx.fillStyle = '#ffffff';
+                        this.ctx.fillRect(0, 0, width, height);
+                        
+                        words.forEach((word, i) => {
+                            this.ctx.save();
+                            this.ctx.translate(word.x + width / 2, word.y + height / 2);
+                            this.ctx.rotate(word.rotate * Math.PI / 180);
+                            this.ctx.font = `${word.size}px ${fontFamily}`;
+                            this.ctx.fillStyle = colors[i % colors.length];
+                            this.ctx.textAlign = 'center';
+                            this.ctx.textBaseline = 'middle';
+                            this.ctx.fillText(word.text, 0, 0);
+                            this.ctx.restore();
+                        });
+                        
+                        resolve();
+                    });
+                
+                layout.start();
+                
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+    
+    // wordcloud2.js 기반 워드 클라우드 생성 (폴백)
+    async generateWordCloud2(words, colors, fontSizeSettings, fontFamily, width, height) {
+        return new Promise((resolve, reject) => {
+            try {
+                // 단어 리스트 생성 (단순화된 버전)
+                const wordList = words.slice(0, 30).map(([word, count]) => {
+                    const maxCount = words[0][1];
+                    const size = fontSizeSettings.min + (count / maxCount) * (fontSizeSettings.max - fontSizeSettings.min);
+                    return [word, Math.max(fontSizeSettings.min, Math.min(fontSizeSettings.max, size))];
+                });
+                
+                // 워드 클라우드 옵션 (단순화)
+                const options = {
+                    list: wordList,
+                    gridSize: 8,
+                    weightFactor: 1,
+                    fontFamily: fontFamily,
+                    color: () => colors[Math.floor(Math.random() * colors.length)],
+                    backgroundColor: '#ffffff',
+                    rotateRatio: 0.1,
+                    rotationSteps: 2,
+                    shuffle: true,
+                    drawOutOfBound: false,
+                    shrinkToFit: true,
+                    minFontSize: fontSizeSettings.min,
+                    maxFontSize: fontSizeSettings.max
+                };
+                
+                console.log(`워드 클라우드 생성 시작: ${wordList.length}개 단어`);
+                
+                // 워드 클라우드 생성
+                WordCloud(this.canvas, options);
+                resolve();
+                
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+    
+    // 순수 JavaScript 워드 클라우드 생성 (최후의 수단)
+    async generateSimpleWordCloud(words, colors, fontSizeSettings, fontFamily, width, height) {
+        return new Promise((resolve) => {
+            // 단어 데이터 준비
+            const wordData = words.slice(0, 20).map(([word, count], index) => ({
+                text: word,
+                size: fontSizeSettings.min + (count / words[0][1]) * (fontSizeSettings.max - fontSizeSettings.min),
+                color: colors[index % colors.length]
+            }));
+            
+            // 캔버스 초기화
+            this.ctx.clearRect(0, 0, width, height);
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.fillRect(0, 0, width, height);
+            
+            // 간단한 원형 배치로 워드 클라우드 생성
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const maxRadius = Math.min(width, height) / 2 - 50;
+            
+            wordData.forEach((word, index) => {
+                // 원형 배치
+                const angle = (index / wordData.length) * 2 * Math.PI;
+                const radius = maxRadius * (0.3 + 0.7 * Math.random());
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+                
+                // 텍스트 그리기
+                this.ctx.save();
+                this.ctx.font = `${Math.round(word.size)}px ${fontFamily}`;
+                this.ctx.fillStyle = word.color;
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                this.ctx.fillText(word.text, x, y);
+                this.ctx.restore();
+            });
+            
+            resolve();
+        });
     }
     
     // 색상 강도 조절 (빈도에 따라)
