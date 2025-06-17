@@ -28,7 +28,8 @@ class WordCloudGenerator {
         
         this.init();
     }
-      init() {
+    
+    init() {
         this.generateBtn.addEventListener('click', () => this.generateWordCloud());
         this.downloadBtn.addEventListener('click', () => this.downloadImage());
         this.fetchBtn.addEventListener('click', () => this.fetchWebPageText());
@@ -44,7 +45,8 @@ class WordCloudGenerator {
                 this.fetchWebPageText();
             }
         });
-          // 샘플 텍스트 설정 (한국어 형태소 분석 테스트용)
+        
+        // 샘플 텍스트 설정 (한국어 형태소 분석 테스트용)
         this.textInput.value = `인공지능과 머신러닝은 현대 기술의 핵심입니다. 데이터사이언스를 통해 우리는 복잡한 문제들을 해결할 수 있습니다. 
 프로그래밍 언어로는 파이썬이 매우 인기가 높으며, 웹개발에서는 자바스크립트가 필수적입니다. 
 모바일앱 개발과 클라우드컴퓨팅 기술이 빠르게 발전하고 있습니다. 
@@ -80,7 +82,8 @@ class WordCloudGenerator {
             this.urlStatus.className = 'url-status';
         }
     }
-      // 웹페이지 텍스트 가져오기
+    
+    // 웹페이지 텍스트 가져오기
     async fetchWebPageText() {
         const url = this.urlInput.value.trim();
         
@@ -128,6 +131,7 @@ class WordCloudGenerator {
             
             for (const proxyUrl of proxyUrls) {
                 try {
+                    console.log(`시도 중: ${proxyUrl}`);
                     response = await fetch(proxyUrl, {
                         method: 'GET',
                         headers: {
@@ -138,6 +142,7 @@ class WordCloudGenerator {
                     
                     if (response.ok) {
                         responseData = await response.json();
+                        console.log('응답 데이터:', responseData);
                         break;
                     }
                 } catch (error) {
@@ -165,8 +170,8 @@ class WordCloudGenerator {
             this.showUrlStatus(`오류: ${error.message}`, 'error');
             
             // 대안 방법 제안
-            this.extractedText.value = '웹페이지 텍스트 추출에 실패했습니다.\n\n대안:\n1. 웹페이지의 텍스트를 직접 복사하여 "직접 입력" 탭에 붙여넣으세요.\n2. CORS 정책으로 인해 일부 웹사이트는 접근이 제한될 수 있습니다.\n3. 로컬에서 실행하는 경우 브라우저의 CORS 정책을 비활성화하거나 로컬 프록시 서버를 사용해보세요.';
-        } finally {        } finally {
+            this.extractedText.value = '웹페이지 텍스트 추출에 실패했습니다.\\n\\n대안:\\n1. 웹페이지의 텍스트를 직접 복사하여 "직접 입력" 탭에 붙여넣으세요.\\n2. CORS 정책으로 인해 일부 웹사이트는 접근이 제한될 수 있습니다.\\n3. 로컬에서 실행하는 경우 브라우저의 CORS 정책을 비활성화하거나 로컬 프록시 서버를 사용해보세요.';
+        } finally {
             this.fetchBtn.disabled = false;
             this.fetchBtn.textContent = '텍스트 가져오기';
         }
@@ -196,8 +201,8 @@ class WordCloudGenerator {
         let text = tempDiv.textContent || tempDiv.innerText || '';
         
         // 공백 및 특수문자 정리
-        text = text.replace(/\s+/g, ' ') // 연속된 공백을 하나로
-                  .replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣]/g, ' ') // 한글, 영문, 숫자, 공백만 유지
+        text = text.replace(/\\s+/g, ' ') // 연속된 공백을 하나로
+                  .replace(/[^\\w\\sㄱ-ㅎㅏ-ㅣ가-힣]/g, ' ') // 한글, 영문, 숫자, 공백만 유지
                   .trim();
         
         return text;
@@ -207,7 +212,9 @@ class WordCloudGenerator {
     showUrlStatus(message, type) {
         this.urlStatus.textContent = message;
         this.urlStatus.className = `url-status ${type}`;
-    }    // 텍스트 전처리 및 단어 빈도 계산
+    }
+    
+    // 텍스트 전처리 및 단어 빈도 계산
     processText(text) {
         // 한국어 형태소 분석 적용
         const analyzedWords = this.analyzeKoreanText(text);
@@ -267,7 +274,9 @@ class WordCloudGenerator {
             
             words.forEach(word => {
                 const cleanWord = word.trim();
-                if (cleanWord.length < 2) return; // 너무 짧은 단어 제외
+                if (cleanWord.length < 2) {
+                    return; // 너무 짧은 단어 제외
+                }
                 
                 // 한국어 단어 처리
                 if (/[가-힣]/.test(cleanWord)) {
@@ -296,7 +305,9 @@ class WordCloudGenerator {
     
     // 한국어 단어 형태소 분석 (간단한 규칙 기반)
     analyzeKoreanWord(word) {
-        if (word.length < 2) return null;
+        if (word.length < 2) {
+            return null;
+        }
         
         // 조사 제거 규칙
         const particlePatterns = [
@@ -361,7 +372,8 @@ class WordCloudGenerator {
         const scheme = this.colorScheme.value;
         return this.colorSchemes[scheme] || this.colorSchemes.default;
     }
-      // 폰트 크기 설정 가져오기
+    
+    // 폰트 크기 설정 가져오기
     getFontSizeSettings() {
         const size = this.fontSize.value;
         const settings = {
@@ -371,7 +383,8 @@ class WordCloudGenerator {
         };
         return settings[size] || settings.medium;
     }
-      // 워드 클라우드 생성
+    
+    // 워드 클라우드 생성
     async generateWordCloud() {
         let text = '';
         
@@ -402,7 +415,8 @@ class WordCloudGenerator {
             const colors = this.getColors();
             const fontSizeSettings = this.getFontSizeSettings();
             const fontFamily = this.fontFamily.value;
-              // wordcloud2.js를 사용하여 워드 클라우드 생성
+            
+            // wordcloud2.js를 사용하여 워드 클라우드 생성
             const wordList = words.map(([word, count], index) => {
                 const maxCount = words[0][1]; // 최고 빈도
                 const minCount = words[words.length - 1][1]; // 최저 빈도
@@ -426,7 +440,8 @@ class WordCloudGenerator {
                 
                 return [word, finalSize];
             });
-              const options = {
+            
+            const options = {
                 list: wordList,
                 gridSize: Math.round(16 * this.canvas.width / 1024),
                 weightFactor: 1,
