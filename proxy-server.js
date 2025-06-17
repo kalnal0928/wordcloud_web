@@ -52,8 +52,14 @@ app.get('/api/extract-text', async (req, res) => {
         const fetch = (await import('node-fetch')).default;
         const response = await fetch(url, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
+            },
+            timeout: 15000
         });
         
         if (!response.ok) {
@@ -62,20 +68,89 @@ app.get('/api/extract-text', async (req, res) => {
         
         const html = await response.text();
         
-        // 간단한 HTML 텍스트 추출 (서버 사이드)
+        // JSDOM을 사용한 HTML 파싱
         const { JSDOM } = require('jsdom');
         const dom = new JSDOM(html);
         const document = dom.window.document;
         
         // 불필요한 요소 제거
-        const unwantedSelectors = ['script', 'style', 'nav', 'footer', 'aside', '.ads', '.advertisement'];
+        const unwantedSelectors = [
+            'script', 'style', 'nav', 'footer', 'aside', 'header',
+            '.ads', '.advertisement', '.sidebar', '.menu', '.navigation',
+            '.social', '.share', '.comment', '.related', '.popup',
+            'iframe', 'noscript', 'form', 'button', 'input', 'select',
+            '.cookie', '.banner', '.modal', '.overlay', '.tooltip',
+            'meta', 'link', 'title', 'head'
+        ];
+        
         unwantedSelectors.forEach(selector => {
-            const elements = document.querySelectorAll(selector);
-            elements.forEach(el => el.remove());
+            try {
+                const elements = document.querySelectorAll(selector);
+                elements.forEach(el => el.remove());
+            } catch (e) {
+                console.log(`선택자 ${selector} 처리 중 오류:`, e);
+            }
         });
         
-        let text = document.body.textContent || '';
-        text = text.replace(/\s+/g, ' ').trim();
+        // 주요 콘텐츠 영역 우선 탐색
+        const contentSelectors = [
+            'main', 'article', '.content', '.post', '.entry',
+            '.article-body', '.post-content', '.entry-content',
+            '.main-content', '.page-content', '.story-content',
+            'section', 'div[role="main"]', '.text-content',
+            'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th'
+        ];
+        
+        let text = '';
+        let extractedLength = 0;
+        
+        // 주요 콘텐츠 영역에서 텍스트 추출 시도
+        for (const selector of contentSelectors) {
+            const elements = document.querySelectorAll(selector);
+            if (elements.length > 0) {
+                elements.forEach(el => {
+                    const elementText = el.textContent || el.innerText || '';
+                    const cleanText = elementText.trim();
+                    
+                    // 의미있는 텍스트만 추출 (최소 10자 이상)
+                    if (cleanText.length > 10 && !/^\s*$/.test(cleanText)) {
+                        // 중복 제거를 위한 간단한 체크
+                        if (!text.includes(cleanText.substring(0, 20))) {
+                            text += cleanText + ' ';
+                            extractedLength += cleanText.length;
+                        }
+                    }
+                });
+                
+                // 충분한 텍스트가 확보되면 중단 (최소 500자)
+                if (extractedLength > 500) {
+                    console.log(`충분한 텍스트 추출됨: ${extractedLength}자`);
+                    break;
+                }
+            }
+        }
+        
+        // 주요 콘텐츠에서 텍스트를 찾지 못한 경우 전체 텍스트 사용
+        if (text.length < 200) {
+            console.log('주요 콘텐츠에서 충분한 텍스트를 찾지 못해 전체 텍스트 사용');
+            text = document.body.textContent || '';
+        }
+        
+        // 텍스트 정리 및 정제
+        text = text
+            .replace(/\s+/g, ' ') // 연속된 공백을 하나로
+            .replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣.,!?;:()\-]/g, ' ') // 한글, 영문, 숫자, 기본 문장부호만 유지
+            .replace(/\b\w{1}\b/g, '') // 1글자 영문 단어 제거
+            .replace(/\s+/g, ' ') // 다시 공백 정리
+            .replace(/^\s+|\s+$/g, '') // 앞뒤 공백 제거
+            .trim();
+        
+        // 최소 길이 체크
+        if (text.length < 50) {
+            throw new Error('웹페이지에서 충분한 텍스트를 추출할 수 없습니다.');
+        }
+        
+        console.log(`텍스트 추출 성공: ${text.length}자`);
         
         res.json({
             success: true,
@@ -85,6 +160,7 @@ app.get('/api/extract-text', async (req, res) => {
         });
         
     } catch (error) {
+        console.error('텍스트 추출 오류:', error);
         res.status(500).json({
             success: false,
             error: error.message,

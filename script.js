@@ -90,7 +90,8 @@ class WordCloudGenerator {
         this.fetchBtn.disabled = true;
         this.fetchBtn.textContent = '가져오는 중...';
         this.showUrlStatus('웹페이지 텍스트를 가져오고 있습니다...', 'loading');
-          try {
+        
+        try {
             // 로컬 프록시 서버 시도 (개발 환경)
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 try {
@@ -108,44 +109,80 @@ class WordCloudGenerator {
                 }
             }
             
-            // CORS 우회를 위해 여러 공개 프록시 서비스 시도
-            const proxyUrls = [
-                `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-                `https://cors-anywhere.herokuapp.com/${url}`,
-                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+            // 업데이트된 공개 프록시 서비스들
+            const proxyServices = [
+                {
+                    url: `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+                    extractData: (data) => data.contents
+                },
+                {
+                    url: `https://cors-anywhere.herokuapp.com/${url}`,
+                    extractData: (data) => data
+                },
+                {
+                    url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+                    extractData: (data) => data
+                },
+                {
+                    url: `https://thingproxy.freeboard.io/fetch/${url}`,
+                    extractData: (data) => data
+                },
+                {
+                    url: `https://cors.bridged.cc/${url}`,
+                    extractData: (data) => data
+                }
             ];
             
-            let response = null;
-            let responseData = null;
+            let htmlContent = null;
+            let lastError = null;
             
-            for (const proxyUrl of proxyUrls) {
+            // 각 프록시 서비스를 순차적으로 시도
+            for (const service of proxyServices) {
                 try {
-                    response = await fetch(proxyUrl, {
+                    console.log(`프록시 서비스 시도: ${service.url}`);
+                    
+                    const response = await fetch(service.url, {
                         method: 'GET',
                         headers: {
-                            'Accept': 'application/json, text/plain, */*',
-                            'Content-Type': 'application/json'
-                        }
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                            'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                        },
+                        timeout: 10000
                     });
                     
                     if (response.ok) {
-                        responseData = await response.json();
-                        break;
+                        const responseData = await response.text();
+                        
+                        // JSON 응답인 경우 파싱
+                        let data;
+                        try {
+                            data = JSON.parse(responseData);
+                        } catch {
+                            data = responseData;
+                        }
+                        
+                        htmlContent = service.extractData(data);
+                        
+                        if (htmlContent && typeof htmlContent === 'string' && htmlContent.length > 100) {
+                            console.log(`성공: ${service.url}`);
+                            break;
+                        }
                     }
                 } catch (error) {
-                    console.log(`프록시 ${proxyUrl} 실패:`, error);
+                    console.log(`프록시 실패: ${service.url}`, error);
+                    lastError = error;
                     continue;
                 }
             }
             
-            if (!responseData || !responseData.contents) {
-                throw new Error('웹페이지 내용을 가져올 수 없습니다.');
+            if (!htmlContent || htmlContent.length < 100) {
+                throw new Error('웹페이지 내용을 가져올 수 없습니다. CORS 정책이나 네트워크 문제일 수 있습니다.');
             }
             
-            const htmlContent = responseData.contents;
             const extractedText = this.extractTextFromHtml(htmlContent);
             
-            if (!extractedText || extractedText.length < 10) {
+            if (!extractedText || extractedText.length < 50) {
                 throw new Error('웹페이지에서 충분한 텍스트를 추출할 수 없습니다.');
             }
             
@@ -157,7 +194,20 @@ class WordCloudGenerator {
             this.showUrlStatus(`오류: ${error.message}`, 'error');
             
             // 대안 방법 제안
-            this.extractedText.value = '웹페이지 텍스트 추출에 실패했습니다.\n\n대안:\n1. 웹페이지의 텍스트를 직접 복사하여 "직접 입력" 탭에 붙여넣으세요.\n2. CORS 정책으로 인해 일부 웹사이트는 접근이 제한될 수 있습니다.\n3. 로컬에서 실행하는 경우 브라우저의 CORS 정책을 비활성화하거나 로컬 프록시 서버를 사용해보세요.';
+            this.extractedText.value = `웹페이지 텍스트 추출에 실패했습니다.
+
+오류 내용: ${error.message}
+
+해결 방법:
+1. 웹페이지의 텍스트를 직접 복사하여 "직접 입력" 탭에 붙여넣으세요.
+2. 다른 웹페이지 URL을 시도해보세요.
+3. CORS 정책으로 인해 일부 웹사이트는 접근이 제한될 수 있습니다.
+4. 로컬에서 실행하는 경우 브라우저의 CORS 정책을 비활성화하거나 로컬 프록시 서버를 사용해보세요.
+
+테스트용 URL 예시:
+- https://example.com
+- https://wikipedia.org
+- https://github.com`;
         } finally {
             this.fetchBtn.disabled = false;
             this.fetchBtn.textContent = '텍스트 가져오기';
@@ -176,23 +226,98 @@ class WordCloudGenerator {
     
     // HTML에서 텍스트 추출
     extractTextFromHtml(html) {
-        // 임시 DOM 요소 생성
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = html;
-        
-        // 스크립트, 스타일, 주석 등 불필요한 요소 제거
-        const unwantedElements = tempDiv.querySelectorAll('script, style, nav, footer, aside, .ads, .advertisement, .sidebar, .menu');
-        unwantedElements.forEach(el => el.remove());
-        
-        // 텍스트 추출 및 정리
-        let text = tempDiv.textContent || tempDiv.innerText || '';
-        
-        // 공백 및 특수문자 정리
-        text = text.replace(/\s+/g, ' ') // 연속된 공백을 하나로
-                  .replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣]/g, ' ') // 한글, 영문, 숫자, 공백만 유지
-                  .trim();
-        
-        return text;
+        try {
+            // 임시 DOM 요소 생성
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            
+            // 스크립트, 스타일, 주석 등 불필요한 요소 제거
+            const unwantedSelectors = [
+                'script', 'style', 'nav', 'footer', 'aside', 'header',
+                '.ads', '.advertisement', '.sidebar', '.menu', '.navigation',
+                '.social', '.share', '.comment', '.related', '.popup',
+                'iframe', 'noscript', 'form', 'button', 'input', 'select',
+                '.cookie', '.banner', '.modal', '.overlay', '.tooltip',
+                'meta', 'link', 'title', 'head'
+            ];
+            
+            unwantedSelectors.forEach(selector => {
+                try {
+                    const elements = tempDiv.querySelectorAll(selector);
+                    elements.forEach(el => el.remove());
+                } catch (e) {
+                    console.log(`선택자 ${selector} 처리 중 오류:`, e);
+                }
+            });
+            
+            // 주요 콘텐츠 영역 우선 탐색 (우선순위 순서)
+            const contentSelectors = [
+                'main', 'article', '.content', '.post', '.entry',
+                '.article-body', '.post-content', '.entry-content',
+                '.main-content', '.page-content', '.story-content',
+                'section', 'div[role="main"]', '.text-content',
+                'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th'
+            ];
+            
+            let text = '';
+            let extractedLength = 0;
+            
+            // 주요 콘텐츠 영역에서 텍스트 추출 시도
+            for (const selector of contentSelectors) {
+                const elements = tempDiv.querySelectorAll(selector);
+                if (elements.length > 0) {
+                    elements.forEach(el => {
+                        const elementText = el.textContent || el.innerText || '';
+                        const cleanText = elementText.trim();
+                        
+                        // 의미있는 텍스트만 추출 (최소 10자 이상)
+                        if (cleanText.length > 10 && !/^\s*$/.test(cleanText)) {
+                            // 중복 제거를 위한 간단한 체크
+                            if (!text.includes(cleanText.substring(0, 20))) {
+                                text += cleanText + ' ';
+                                extractedLength += cleanText.length;
+                            }
+                        }
+                    });
+                    
+                    // 충분한 텍스트가 확보되면 중단 (최소 500자)
+                    if (extractedLength > 500) {
+                        console.log(`충분한 텍스트 추출됨: ${extractedLength}자`);
+                        break;
+                    }
+                }
+            }
+            
+            // 주요 콘텐츠에서 텍스트를 찾지 못한 경우 전체 텍스트 사용
+            if (text.length < 200) {
+                console.log('주요 콘텐츠에서 충분한 텍스트를 찾지 못해 전체 텍스트 사용');
+                text = tempDiv.textContent || tempDiv.innerText || '';
+            }
+            
+            // 텍스트 정리 및 정제
+            text = text
+                .replace(/\s+/g, ' ') // 연속된 공백을 하나로
+                .replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣.,!?;:()\-]/g, ' ') // 한글, 영문, 숫자, 기본 문장부호만 유지
+                .replace(/\b\w{1}\b/g, '') // 1글자 영문 단어 제거
+                .replace(/\s+/g, ' ') // 다시 공백 정리
+                .replace(/^\s+|\s+$/g, '') // 앞뒤 공백 제거
+                .trim();
+            
+            // 최소 길이 체크
+            if (text.length < 50) {
+                console.log('추출된 텍스트가 너무 짧음:', text.length);
+                return '';
+            }
+            
+            console.log('추출된 텍스트 길이:', text.length);
+            console.log('추출된 텍스트 미리보기:', text.substring(0, 200));
+            
+            return text;
+            
+        } catch (error) {
+            console.error('HTML 텍스트 추출 오류:', error);
+            return '';
+        }
     }
     
     // URL 상태 메시지 표시
