@@ -38,6 +38,16 @@ header p {
     animation: fadeInUp 1s ease-out 0.2s both;
 }
 
+.feature-highlight {
+    font-size: 1rem !important;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin-top: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+}
+
 main {
     display: grid;
     grid-template-columns: 1fr 2fr;

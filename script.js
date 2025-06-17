@@ -44,12 +44,20 @@ class WordCloudGenerator {
                 this.fetchWebPageText();
             }
         });
-        
-        // 샘플 텍스트 설정
-        this.textInput.value = `인공지능 머신러닝 데이터사이언스 프로그래밍 웹개발 모바일앱 클라우드컴퓨팅 사이버보안 
-블록체인 빅데이터 자동화 API 데이터베이스 프론트엔드 백엔드 풀스택 개발자 소프트웨어 
-알고리즘 자료구조 네트워크 서버 클라이언트 사용자경험 인터페이스 디자인 창의성 혁신 
-기술 미래 디지털트랜스포메이션 스마트시티 IoT 가상현실 증강현실 로봇공학 자율주행`;
+          // 샘플 텍스트 설정 (한국어 형태소 분석 테스트용)
+        this.textInput.value = `인공지능과 머신러닝은 현대 기술의 핵심입니다. 데이터사이언스를 통해 우리는 복잡한 문제들을 해결할 수 있습니다. 
+프로그래밍 언어로는 파이썬이 매우 인기가 높으며, 웹개발에서는 자바스크립트가 필수적입니다. 
+모바일앱 개발과 클라우드컴퓨팅 기술이 빠르게 발전하고 있습니다. 
+사이버보안은 디지털 시대에 매우 중요한 분야가 되었습니다. 
+블록체인 기술과 빅데이터 분석은 미래 산업의 핵심 동력이 될 것입니다. 
+자동화 시스템과 API 설계는 효율적인 소프트웨어 개발에 필수적입니다. 
+데이터베이스 관리와 프론트엔드 개발, 백엔드 시스템 구축은 웹 서비스의 기본 요소들입니다. 
+풀스택 개발자가 되기 위해서는 다양한 기술 스택을 익혀야 합니다. 
+알고리즘과 자료구조는 컴퓨터과학의 기초이며, 네트워크와 서버 관리는 시스템 운영에 중요합니다. 
+사용자경험 디자인과 인터페이스 설계는 성공적인 제품을 만드는 핵심 요소입니다. 
+창의성과 혁신적 사고는 기술 발전의 원동력이 됩니다. 
+디지털트랜스포메이션이 진행되면서 스마트시티와 IoT 기술이 주목받고 있습니다. 
+가상현실과 증강현실 기술은 새로운 경험을 제공하며, 로봇공학과 자율주행 기술은 미래를 바꿀 것입니다.`;
     }
     
     // 탭 전환
@@ -199,15 +207,14 @@ class WordCloudGenerator {
     showUrlStatus(message, type) {
         this.urlStatus.textContent = message;
         this.urlStatus.className = `url-status ${type}`;
-    }
-      // 텍스트 전처리 및 단어 빈도 계산
+    }    // 텍스트 전처리 및 단어 빈도 계산
     processText(text) {
-        // 한글, 영문, 숫자만 추출하고 공백으로 분리
-        const words = text.match(/[가-힣a-zA-Z0-9]+/g) || [];
+        // 한국어 형태소 분석 적용
+        const analyzedWords = this.analyzeKoreanText(text);
         
         // 단어 빈도 계산
         const wordCount = {};
-        words.forEach(word => {
+        analyzedWords.forEach(word => {
             if (word.length > 1) { // 1글자 단어 제외
                 const lowerWord = word.toLowerCase();
                 wordCount[lowerWord] = (wordCount[lowerWord] || 0) + 1;
@@ -221,14 +228,132 @@ class WordCloudGenerator {
         
         // 빈도 분포 정보 로깅
         if (sortedWords.length > 0) {
-            console.log('=== 단어 빈도 분석 결과 ===');
+            console.log('=== 한국어 형태소 분석 결과 ===');
             console.log(`총 고유 단어 수: ${Object.keys(wordCount).length}`);
             console.log(`최고 빈도: ${sortedWords[0][1]}회 (${sortedWords[0][0]})`);
             console.log(`최저 빈도: ${sortedWords[sortedWords.length-1][1]}회 (${sortedWords[sortedWords.length-1][0]})`);
             console.log('상위 10개 단어:', sortedWords.slice(0, 10));
+            console.log('분석된 의미 단어들:', analyzedWords.slice(0, 20));
         }
         
         return sortedWords;
+    }
+    
+    // 한국어 형태소 분석
+    analyzeKoreanText(text) {
+        // 한국어 불용어 리스트 (조사, 어미, 접속사 등)
+        const stopWords = new Set([
+            // 조사
+            '이', '가', '을', '를', '에', '에서', '으로', '로', '와', '과', '의', '도', '만', '까지', '부터', '에게', '한테', '께', '에서부터', '로부터', '과함께', '와함께', '처럼', '같이', '보다', '만큼', '정도', '쯤', '라도', '나마', '이라도', '라서', '라야', '든지', '든가', '라면', '면서', '면서도', '하며', '하면서',
+            // 어미
+            '다', '는다', '한다', '습니다', '입니다', '이다', '입니다', '였다', '었다', '했다', '되었다', '되다', '있다', '있습니다', '없다', '없습니다', '것이다', '것입니다', '기', '게', '지', '니', '며', '거나', '든지', '라든지', '든가', '나', '네', '요', '죠',
+            // 접속사 및 부사
+            '그리고', '그런데', '하지만', '그러나', '또한', '그래서', '따라서', '즉', '예를', '들어', '같은', '다른', '이런', '저런', '어떤', '모든', '각각', '서로', '또', '더', '매우', '아주', '정말', '참', '꽤', '상당히', '조금', '약간', '많이', '적게', '잘', '못', '안', '않',
+            // 대명사
+            '이것', '그것', '저것', '여기', '거기', '저기', '이곳', '그곳', '저곳', '나', '너', '우리', '당신', '그들', '누구', '무엇', '언제', '어디', '어떻게', '왜', '어느',
+            // 수사
+            '하나', '둘', '셋', '넷', '다섯', '여섯', '일곱', '여덟', '아홉', '열', '첫째', '둘째', '셋째',
+            // 기타 불용어
+            '것', '수', '때', '곳', '점', '면', '등', '및', '또는', '혹은', '즉', '단', '다만', '만약', '비록', '설령', '하나', '둘', '가지', '번', '차', '개', '명', '사람', '경우', '상황', '문제', '방법', '결과', '이유', '목적', '의미', '내용', '정보', '자료', '데이터'
+        ]);
+        
+        // 텍스트를 문장 단위로 분리
+        const sentences = text.split(/[.!?。．？！]+/).filter(s => s.trim());
+        const meaningfulWords = [];
+        
+        sentences.forEach(sentence => {
+            // 기본적인 단어 분리 (공백, 특수문자 기준)
+            const words = sentence.match(/[가-힣a-zA-Z0-9]+/g) || [];
+            
+            words.forEach(word => {
+                const cleanWord = word.trim();
+                if (cleanWord.length < 2) return; // 너무 짧은 단어 제외
+                
+                // 한국어 단어 처리
+                if (/[가-힣]/.test(cleanWord)) {
+                    const analyzedWord = this.analyzeKoreanWord(cleanWord);
+                    if (analyzedWord && !stopWords.has(analyzedWord) && analyzedWord.length > 1) {
+                        meaningfulWords.push(analyzedWord);
+                    }
+                } 
+                // 영어 단어 처리
+                else if (/[a-zA-Z]/.test(cleanWord)) {
+                    const lowerWord = cleanWord.toLowerCase();
+                    // 영어 불용어 체크
+                    if (!this.isEnglishStopWord(lowerWord) && lowerWord.length > 2) {
+                        meaningfulWords.push(lowerWord);
+                    }
+                }
+                // 숫자가 포함된 단어 (버전, 연도 등)
+                else if (/[0-9]/.test(cleanWord) && cleanWord.length > 1) {
+                    meaningfulWords.push(cleanWord);
+                }
+            });
+        });
+        
+        return meaningfulWords;
+    }
+    
+    // 한국어 단어 형태소 분석 (간단한 규칙 기반)
+    analyzeKoreanWord(word) {
+        if (word.length < 2) return null;
+        
+        // 조사 제거 규칙
+        const particlePatterns = [
+            /이$/, /가$/, /을$/, /를$/, /에$/, /에서$/, /으로$/, /로$/, /와$/, /과$/, /의$/, /도$/, /만$/, /까지$/, /부터$/,
+            /에게$/, /한테$/, /께$/, /처럼$/, /같이$/, /보다$/, /만큼$/, /라도$/, /나마$/, /라서$/, /라야$/, /라면$/
+        ];
+        
+        // 어미 제거 규칙
+        const endingPatterns = [
+            /습니다$/, /입니다$/, /었습니다$/, /였습니다$/, /했습니다$/, /됩니다$/, /있습니다$/, /없습니다$/,
+            /는다$/, /한다$/, /된다$/, /이다$/, /였다$/, /었다$/, /했다$/, /되었다$/, /있다$/, /없다$/,
+            /하는$/, /되는$/, /있는$/, /없는$/, /하기$/, /되기$/, /하며$/, /되며$/, /하면서$/, /되면서$/,
+            /하고$/, /되고$/, /하거나$/, /되거나$/, /하지만$/, /하지$/, /되지$/, /하면$/, /되면$/
+        ];
+        
+        let cleanedWord = word;
+        
+        // 조사 제거
+        for (const pattern of particlePatterns) {
+            if (pattern.test(cleanedWord)) {
+                cleanedWord = cleanedWord.replace(pattern, '');
+                break;
+            }
+        }
+        
+        // 어미 제거
+        for (const pattern of endingPatterns) {
+            if (pattern.test(cleanedWord)) {
+                cleanedWord = cleanedWord.replace(pattern, '');
+                break;
+            }
+        }
+        
+        // 너무 짧아진 경우 원래 단어 반환 (단, 의미있는 경우만)
+        if (cleanedWord.length < 2) {
+            // 원래 단어가 명사일 가능성이 높은 경우
+            if (word.length >= 3 && !this.isLikelyParticleOrEnding(word)) {
+                return word;
+            }
+            return null;
+        }
+        
+        return cleanedWord;
+    }
+    
+    // 조사나 어미인지 판단하는 간단한 휴리스틱
+    isLikelyParticleOrEnding(word) {
+        const particleEndings = ['이다', '습니다', '입니다', '했다', '되다', '있다', '없다', '하는', '되는'];
+        return particleEndings.some(ending => word.endsWith(ending));
+    }
+    
+    // 영어 불용어 체크
+    isEnglishStopWord(word) {
+        const englishStopWords = new Set([
+            'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'should', 'now', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'this', 'that', 'these', 'those', 'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself', 'it', 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'whose', 'if', 'else', 'while', 'because', 'as', 'until', 'although'
+        ]);
+        return englishStopWords.has(word.toLowerCase());
     }
     
     // 색상 스키마 가져오기
