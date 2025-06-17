@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>워드 클라우드 생성기</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>✨ 워드 클라우드 생성기</h1>
+            <p>텍스트를 입력하고 아름다운 워드 클라우드를 만들어보세요!</p>
+        </header>
+
+        <main>
+            <div class="input-section">
+                <div class="input-group">
+                    <label for="textInput">텍스트 입력:</label>
+                    <textarea 
+                        id="textInput" 
+                        placeholder="여기에 텍스트를 입력하세요. 단어들이 많을수록 더 풍부한 워드 클라우드가 생성됩니다."
+                        rows="8"
+                    ></textarea>
+                </div>
+
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="colorScheme">색상 테마:</label>
+                        <select id="colorScheme">
+                            <option value="default">기본</option>
+                            <option value="blue">블루</option>
+                            <option value="green">그린</option>
+                            <option value="warm">웜톤</option>
+                            <option value="cool">쿨톤</option>
+                            <option value="rainbow">레인보우</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="fontSize">글자 크기:</label>
+                        <select id="fontSize">
+                            <option value="small">작게</option>
+                            <option value="medium" selected>보통</option>
+                            <option value="large">크게</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="fontFamily">폰트:</label>
+                        <select id="fontFamily">
+                            <option value="Arial">Arial</option>
+                            <option value="Georgia">Georgia</option>
+                            <option value="Helvetica">Helvetica</option>
+                            <option value="Times">Times</option>
+                            <option value="Verdana">Verdana</option>
+                        </select>
+                    </div>
+
+                    <button id="generateBtn" class="generate-btn">워드 클라우드 생성</button>
+                    <button id="downloadBtn" class="download-btn" style="display: none;">이미지 다운로드</button>
+                </div>
+            </div>
+
+            <div class="output-section">
+                <div class="canvas-container">
+                    <canvas id="wordcloud" width="800" height="400"></canvas>
+                    <div id="placeholder" class="placeholder">
+                        <p>🎨 워드 클라우드가 여기에 생성됩니다</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>© 2025 워드 클라우드 생성기. 텍스트 분석과 시각화를 쉽게!</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

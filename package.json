@@ -1,0 +1,34 @@
+{
+  "name": "wordcloud-web",
+  "version": "1.0.0",
+  "description": "워드 클라우드를 생성하는 웹 애플리케이션",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx live-server",
+    "build": "echo 'No build process required for static site'",
+    "test": "echo 'No tests specified'"
+  },
+  "keywords": [
+    "wordcloud",
+    "visualization",
+    "text-analysis",
+    "web-app",
+    "javascript"
+  ],
+  "author": "WordCloud Web Developer",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "live-server": "^1.2.2",
+    "serve": "^14.2.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/wordcloud-web.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/wordcloud-web/issues"
+  },
+  "homepage": "https://github.com/your-username/wordcloud-web#readme"
+}
